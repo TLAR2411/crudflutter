@@ -143,8 +143,9 @@ class ScreenForm extends StatelessWidget {
                     "category": categoryController.text,
                     "isMark": isMark.value,
                   });
-                  // print(d.data);
-                  Get.off(MyApp()); // go back to home
+                  print(d.data);
+                  d.data.refresh();
+                  Get.back(); // go back to home
                 },
                 child: const Text(
                   "Add Task",
