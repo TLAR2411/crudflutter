@@ -1,16 +1,74 @@
+import 'dart:convert';
+
 import 'package:chat_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'my_data.dart';
+import 'package:http/http.dart' as http;
 // import ''
 
-class ScreenForm extends StatelessWidget {
+class ScreenForm extends StatefulWidget {
   ScreenForm({super.key});
+  MyData d = Get.find<MyData>();
+  @override
+  State<ScreenForm> createState() => _ScreenFormState();
+}
 
-  final MyData d = Get.find<MyData>();
+class _ScreenFormState extends State<ScreenForm> {
+  dynamic id;
+  String? selectedPriority;
   final TextEditingController titleController = TextEditingController();
-  final TextEditingController categoryController = TextEditingController();
-  final RxBool isMark = false.obs;
+  final TextEditingController dateController = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController priorityController = TextEditingController();
+  Future<void> create() async {
+    final title = titleController.text;
+    final date = dateController.text;
+    final description = descriptionController.text;
+    final priority = priorityController.text;
+
+    http.Response response = await http.post(
+      Uri.parse('https://nubbtodoapi.kode4u.tech/api/todos.php'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${widget.d.token}',
+      },
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'date': date,
+        'priority': priority,
+      }),
+    );
+    Get.back();
+    widget.d.getData();
+  }
+
+  Future<void> getDataToEdit() async {
+    http.Response response = await http.get(
+      Uri.parse('https://nubbtodoapi.kode4u.tech/api/todos.php?id=${id['id']}'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${widget.d.token}',
+      },
+    );
+
+    final getData = jsonDecode(response.body);
+
+    titleController.text = getData['data']['title'];
+    descriptionController.text = getData['data']['description'];
+    dateController.text = getData['data']['date'];
+    selectedPriority = getData['data']['priority'];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    id = Get.arguments;
+    if (id != null && id['id'] != null) {
+      getDataToEdit();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +127,47 @@ class ScreenForm extends StatelessWidget {
             const SizedBox(height: 20),
 
             const Text(
-              "Category",
+              "Description",
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(5),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color.fromARGB(
+                      255,
+                      142,
+                      142,
+                      142,
+                    ).withOpacity(0.2),
+                    blurRadius: 1.4,
+                    spreadRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: descriptionController,
+                decoration: InputDecoration(
+                  hintText: "Description",
+                  hintStyle: TextStyle(
+                    color: const Color.fromARGB(255, 118, 118, 118),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w200,
+                  ),
+                  border: OutlineInputBorder(borderSide: BorderSide.none),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              "Date",
               style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -93,9 +191,10 @@ class ScreenForm extends StatelessWidget {
                 ],
               ),
               child: TextField(
-                controller: categoryController,
+                controller: dateController,
+                readOnly: true,
                 decoration: InputDecoration(
-                  hintText: "e.g. Work, Home, Personal",
+                  hintText: "Date",
                   hintStyle: TextStyle(
                     color: const Color.fromARGB(255, 118, 118, 118),
                     fontSize: 16,
@@ -103,50 +202,83 @@ class ScreenForm extends StatelessWidget {
                   ),
                   border: OutlineInputBorder(borderSide: BorderSide.none),
                 ),
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+
+                  if (pickedDate != null) {
+                    dateController.text = pickedDate.toString().split(" ")[0];
+                  }
+                },
               ),
             ),
-
             const SizedBox(height: 30),
 
-            Obx(
-              () => Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Mark as Done",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  Switch(
-                    activeThumbColor: Colors.blue,
-                    value: isMark.value,
-                    onChanged: (value) => isMark.value = value,
+            const Text(
+              "Priority",
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+
+            Container(
+              padding: EdgeInsets.fromLTRB(10, 0, 0, 0),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(5),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color.fromARGB(
+                      255,
+                      142,
+                      142,
+                      142,
+                    ).withOpacity(0.2),
+                    blurRadius: 1.4,
+                    spreadRadius: 2,
+                    offset: Offset(0, 1),
                   ),
                 ],
               ),
+              child: DropdownButton<String>(
+                isExpanded: true,
+                underline: Container(),
+
+                value: selectedPriority,
+                hint: Text("Select Priority"),
+                items: ["low", "medium", "high"]
+                    .map(
+                      (item) =>
+                          DropdownMenuItem(value: item, child: Text(item)),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedPriority = value;
+                    priorityController.text =
+                        value!; // <-- update your controller
+                  });
+                },
+              ),
             ),
+            const SizedBox(height: 30),
 
             const Spacer(),
-
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: const Color.fromARGB(255, 18, 62, 95),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                onPressed: () {
-                  d.data.add({
-                    "title": titleController.text,
-                    "category": categoryController.text,
-                    "isMark": isMark.value,
-                  });
-                  print(d.data);
-                  d.data.refresh();
-                  Get.back(); // go back to home
-                },
+                onPressed: create,
                 child: const Text(
                   "Add Task",
                   style: TextStyle(fontSize: 18, color: Colors.white),
